@@ -67,130 +67,116 @@ os.chdir(path)
 #### LETTURA FILE
 stocks = pd.read_csv("stocks.csv")
 stocks = stocks.set_index('Date')
+stocks.index = pd.to_datetime(stocks.index)
+
 fundsret = pd.read_csv("fundsret.csv")
 fundsret = fundsret.set_index('Date')
+fundsret.index = pd.to_datetime(fundsret.index)
+fundsret = fundsret[:-1]
 
 stocks_pct = stocks.pct_change() ## vengono trasformati in percentuale 
 stocks_pct
 stocks_pct = stocks_pct[1:]
-#
-#portFolioAnnuale = pd.DataFrame
-#rendimentoMensile = pd.Series
-#
-#
-#six_months = datetime.strptime('2019-04-01', '%y-%m-%d') + relativedelta(months=-6)
-#
-#datetime.strptime('2019-04-01', '%m-%d-%Y').date()
-#
-#date_str = '2019-04-01'
-#
-#date_object = datetime.strptime(date_str, '%Y-%m-%d').date()
-#
-#
-#stocks_pct['']
-#
-#for()
-#fundsret.loc['2019-04-02',:]
-#
-#
-#w = fundsret.rolling(1).SPY
-#w
+stocks_pct_monthly = stocks_pct.resample('M').agg(lambda x: (x+1).prod()-1)
+stocks_pct_monthly.index = pd.to_datetime(stocks_pct_monthly.index)
 
+fundsret_monthly = fundsret.resample('M').agg(lambda x: (x+1).prod()-1)
+fundsret_monthly.index = pd.to_datetime(fundsret_monthly.index)
+
+start = dt.datetime(2019,4,1)
+end = dt.datetime(2021,4,30)
+
+# Inizio finestra
+startWindow = start
+# Fine finestra
+endWindow = start + relativedelta(months=+12) 
+
+df = pd.DataFrame()
+
+while(endWindow<=end):
+    
+    filtroData = (fundsret.index < endWindow) & (fundsret.index > startWindow)
+    filtroStocksData = (stocks_pct.index < endWindow) & (stocks_pct.index > startWindow)
+    fundsret2 = fundsret[filtroData]
+    stocks_pct2 = stocks_pct[filtroStocksData]
+    print("startWindow" + str(startWindow))
+    print("endWindow" + str(endWindow))
+    
+    # inizio nuova finestra
+    startWindow = startWindow + relativedelta(months=+1)
+    # fine nuova finestra
+    endWindow = startWindow + relativedelta(months=+12)
+    
+    stocks_pct.index = fundsret.index
+    
+    x = fundsret2
+    x
+    
+    y = stocks_pct2
+    y
+    
+    x = sm.add_constant(x)
+    x
+    
+    OLS_model = sm.OLS(y,x).fit() # training the model
+    predicted_values = OLS_model.predict()  # predicted values
+    residual_values = OLS_model.resid # residual values
+    coefficient = OLS_model.params # residual values
+    coefficient
+    residual_values.index = pd.to_datetime(residual_values.index)
+    
+    residuals = residual_values.resample('12M').agg(lambda x: (x+1).prod()-1) # dà il rendimento mensile
+    
+    residualMomentum = residuals.iloc[0]
+    residualMomentum
+    
+    residualMomentum = pd.DataFrame(residualMomentum)
+    
+    residualMomentum['percentile'] = pd.qcut(residualMomentum.iloc[:,0],100,labels=False,duplicates='drop')
+    
+    winners = residualMomentum[residualMomentum['percentile'] == 99]
+    losers = residualMomentum[residualMomentum['percentile'] == 1]
+    winners.index
+    
+    investedMonth = endWindow #+relativedelta(months=+1)
+    investedMonth = investedMonth +relativedelta(days=-1)
+    investedMonth = pd.to_datetime(investedMonth)
+    
+    stocks_winners = stocks_pct_monthly[winners.index]
+    stocks_winners = stocks_winners[stocks_winners.index == investedMonth]
+    stocks_winners['portafoglio'] = stocks_winners.iloc[-1].mean()
+    
+    stocks_winners.loc[:,'winners'] = str(list(winners.index))
+    stocks_winners = stocks_winners[['winners','portafoglio']]
+    
+    df = df.append(stocks_winners)
+    df
+#    rendimentoMensile = rendimentoMensile.append(pd.Series(stocks_winners.iloc[-1].mean()), ignore_index=True)
 
 # Kevin
 # Fare un metodo per fare una finestra manualmente
 
-
 # Giacomo
-# MOmentum video
-# RollingOLS con calcolo dei Giorni di finestra varibili da mese in mese, considerando che è importante regredire con tutti i 500 stocks
-# RollingOLS sui mesi prendendo un finestra di 10 anni, regredendo di 2 anni ogni volta
+# Momentum video
 # dividere i residuals per lo standar standarError
-
-
-fundsret = fundsret[:-1]
-
-#x = fundsret
-#y =  stocks_pct['AAL']
-fundsret.index = stocks_pct.index
-
-fundsret = stocks_pct['ZION']
-fundsret['AAL'] = stocks_pct['AAL']
-x = fundsret
-x
-y = stocks_pct['A']
-
-#OLS_model = RollingOLS(endog =y,exog=x,window=20)
-#rres = model.fit()
-
-#finestra di 12
-
-#
-x = sm.add_constant(x)
-x
-#fundsret['SPY2'] =  stocks_pct['AAL']
-OLS_model = sm.OLS(y,x).fit() # training the model
-predicted_values = OLS_model.predict()  # predicted values
-residual_values = OLS_model.resid # residual values
-coefficient = OLS_model.params # residual values
-coefficient
-rsquared = OLS_model.rsquared # residual values
-rsquared
-residual_values.index = pd.to_datetime(residual_values.index)
-
-
-
-residuals = residual_values.resample('M').agg(lambda x: (x+1).prod()-1) # dà il rendimento mensile
-
-residuals1 = residuals
-residuals
-
-
-# Escludere l'ultimo mese- Rolling
-
-
-residualMomentum = residuals.iloc[-1] -residuals.iloc[0]
-residualMomentum
-
-residualMomentum = pd.DataFrame(residualMomentum)
-
-residualMomentum['cinquenatile'] = pd.qcut(residualMomentum.iloc[:,0],50,labels=False,duplicates='drop')
-
-winners = residualMomentum[residualMomentum['cinquenatile'] == 49]
-losers = residualMomentum[residualMomentum['cinquenatile'] == 1]
-winners.index
-stocks_winners = stocks_pct[winners.index]
-stocks_winners.index = pd.to_datetime(stocks_winners.index)
-stocks_winners = stocks_winners.resample('M').agg(lambda x: (x+1).prod()-1)
-
-portFolio['MAY'] = stocks_winners.iloc[-1].mean()
-
-
-
-rendimentoMensile = pd.Series(stocks_winners.iloc[-1].mean())
-
-rendimentoMensile = rendimentoMensile.append(pd.Series(stocks_winners.iloc[-1].mean()), ignore_index=True)
-
-
 
 ########################## fine for
 # Normalizzazione
-df = stocks_winners.mean()
+df.index = pd.to_datetime(df.index)
+df['SPY'] = fundsret_monthly[fundsret_monthly.index.isin(df.index)]
+
+df
 normalized_df=(df-df.min())/(df.max()-df.min())
-
-
-
-
 
 # normalizzazione
 plt.figure(figsize=(15,10))
 
-time = np.array(normalized_df.index)
-plt.plot(time,normalized_df, linewidth=1)
+time = np.array(df.index)
+plt.plot(time,df[['portafoglio','SPY']], linewidth=1)
 # plt.scatter(time,df_price_tweets.loc[:,'high_median'], color='darkblue',linewidth=None,edgecolors=None , marker='o')
 # plt.scatter(df_price_tweets.loc[:,'time'],df_price_tweets.loc[:,'high_mean'], color='aqua',linewidth=None,edgecolors=None , marker='x')
 #plt.plot(df_price_tweets.loc[:,'date'],df_price_tweets.loc[:,'price_eur_median'], color='aqua',linewidth=3)
 plt.xticks(rotation=70)
-# plt.legend(('compound_media', 'high_median', 'high_mean'))
+plt.legend(('portafoglio', 'SPY'))
 plt.show()
 
